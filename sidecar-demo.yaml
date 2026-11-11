@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sidecar-demo
+spec:
+  containers:
+    - name: main-container
+      image: nginx:alpine
+      ports:
+        - containerPort: 80
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "100m"
+        limits:
+          memory: "128Mi"
+          cpu: "250m"
+      startupProbe:
+        httpGet:
+          path: /
+          port: 80
+        initialDelaySeconds: 0
+        periodSeconds: 5
+        failureThreshold: 12
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 80
+        initialDelaySeconds: 10
+        periodSeconds: 10
+      readinessProbe:
+        httpGet:
+          path: /
+          port: 80
+        initialDelaySeconds: 5
+        periodSeconds: 5
+      volumeMounts:
+        - name: shared-data
+          mountPath: /usr/share/nginx/html
+        - name: nfs-volume
+          mountPath: /mnt/nfs
+
+    - name: sidecar-container
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - 'while true; do date > /shared/index.html; sleep 5; done'
+      resources:
+        requests:
+          memory: "32Mi"
+          cpu: "50m"
+        limits:
+          memory: "64Mi"
+          cpu: "100m"
+      volumeMounts:
+        - name: shared-data
+          mountPath: /shared
+
+  volumes:
+    - name: shared-data
+      emptyDir: {}
+
+    - name: nfs-volume
+      nfs:
+        # Replace this IP with the current reachable IP of your NFS server.
+        server: 172.29.20.211
+        path: /mnt/shared
